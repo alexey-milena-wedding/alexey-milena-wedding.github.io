@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Гости · Алексей и Милена</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%235E633B' d='M12 21s-7.5-4.6-10-9.3C.3 8.3 2.1 4 6.2 4c2.4 0 3.9 1.4 5.8 3.4C13.9 5.4 15.4 4 17.8 4 21.9 4 23.7 8.3 22 11.7 19.5 16.4 12 21 12 21z'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Forum&display=swap">
+<style>
+:root{--paper:#F3E8D9;--card:#FAF3E9;--ink:#3B3727;--muted:#6F6A52;--olive:#5E633B;--on-olive:#F3EAD8;--line:#D8CDB6;--no:#9A3B2E;color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Cormorant Garamond",Georgia,serif;font-size:18px;font-weight:500}
+.wrap{max-width:900px;margin:0 auto;padding:32px max(16px,env(safe-area-inset-right,0px)) 48px max(16px,env(safe-area-inset-left,0px))}
+h1{font-family:Forum,Georgia,serif;font-weight:400;font-size:32px;margin:0 0 4px;text-transform:uppercase;letter-spacing:.03em}
+.sub{color:var(--muted);margin:0 0 24px}
+.login{background:var(--card);border-radius:16px;padding:22px;max-width:420px;display:grid;gap:12px}
+input[type=password]{font:inherit;font-size:20px;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+button{font:inherit;font-size:18px;border:0;border-radius:999px;padding:10px 22px;background:var(--olive);color:var(--on-olive);cursor:pointer}
+button.ghost{background:transparent;color:var(--olive);border:1.5px solid var(--olive)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--olive);outline-offset:2px}
+.err{color:var(--no);margin:0}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+.stat{background:var(--card);border-radius:14px;padding:14px 16px}
+.stat b{display:block;font-family:Forum,Georgia,serif;font-weight:400;font-size:38px;line-height:1;font-variant-numeric:tabular-nums}
+.stat span{color:var(--muted)}
+.drinks{background:var(--card);border-radius:14px;padding:14px 16px;margin-bottom:18px}
+.drinks ul{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:8px 18px}
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.bar .grow{flex:1}
+.tbl{overflow-x:auto;background:var(--card);border-radius:14px}
+table{border-collapse:collapse;width:100%;min-width:560px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--muted);font-size:16px}
+tr:last-child td{border-bottom:0}
+.yes{color:var(--olive);font-weight:600}.no{color:var(--no);font-weight:600}
+.dup{font-size:14px;color:var(--muted)}
+td.when{white-space:nowrap;color:var(--muted);font-variant-numeric:tabular-nums}
+.empty{padding:22px;text-align:center;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Ответы гостей</h1>
+  <p class="sub">Свадьба Алексея и Милены · 27.07.2027</p>
+
+  <form class="login" id="login">
+    <label for="pass">Пароль от списка гостей</label>
+    <input type="password" id="pass" autocomplete="current-password" required>
+    <label style="font-size:16px;color:var(--muted)"><input type="checkbox" id="remember"> Запомнить на этом устройстве</label>
+    <button type="submit">Открыть</button>
+    <p class="err" id="err" hidden></p>
+  </form>
+
+  <div id="list" hidden>
+    <div class="stats">
+      <div class="stat"><b id="sYes">0</b><span>придут</span></div>
+      <div class="stat"><b id="sNo">0</b><span>не смогут</span></div>
+      <div class="stat"><b id="sAll">0</b><span>всего ответов</span></div>
+    </div>
+    <div class="drinks"><span style="color:var(--muted)">Напитки (у тех, кто придёт):</span><ul id="drinkList"></ul></div>
+    <div class="bar">
+      <span class="grow" id="updated"></span>
+      <button class="ghost" id="reload" type="button">Обновить</button>
+      <button id="csv" type="button">Скачать для Excel</button>
+    </div>
+    <div class="tbl"><table>
+      <thead><tr><th>Имя и фамилия</th><th>Придёт</th><th>Напитки</th><th>Когда ответил</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+  </div>
+</div>
+<script>
+const SUPABASE_URL = '';
+const SUPABASE_KEY = '';
+const $ = id => document.getElementById(id);
+let pass = '', rows = [];
+const store = {
+  get(){ try { return localStorage.getItem('guests-pass') || sessionStorage.getItem('guests-pass') || ''; } catch(e){ return ''; } },
+  set(v, keep){ try { (keep ? localStorage : sessionStorage).setItem('guests-pass', v); } catch(e){} },
+  clear(){ try { localStorage.removeItem('guests-pass'); sessionStorage.removeItem('guests-pass'); } catch(e){} }
+};
+
+async function load(){
+  if (!SUPABASE_URL) throw new Error('Таблица ещё не подключена.');
+  const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/guest_list', {
+    method: 'POST',
+    headers: Object.assign({ apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+      SUPABASE_KEY.startsWith('sb_') ? {} : { Authorization: 'Bearer ' + SUPABASE_KEY }),
+    body: JSON.stringify({ pass })
+  });
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error(/wrong password/.test(t) ? 'Неверный пароль.' : 'Не удалось загрузить список. Проверьте интернет и попробуйте ещё раз.');
+  }
+  rows = await r.json();
+  render();
+}
+
+function render(){
+  $('login').hidden = true; $('list').hidden = false;
+  const seen = {};
+  rows.slice().reverse().forEach(x => { const k = x.name.trim().toLowerCase(); seen[k] = (seen[k] || 0) + 1; });
+  const yes = rows.filter(x => x.attend);
+  $('sYes').textContent = yes.length;
+  $('sNo').textContent = rows.length - yes.length;
+  $('sAll').textContent = rows.length;
+  const cnt = {};
+  yes.forEach(x => (x.drinks || []).forEach(d => cnt[d] = (cnt[d] || 0) + 1));
+  const ul = $('drinkList'); ul.textContent = '';
+  const ent = Object.entries(cnt).sort((a, b) => b[1] - a[1]);
+  if (!ent.length) { const li = document.createElement('li'); li.textContent = 'пока нет'; ul.appendChild(li); }
+  ent.forEach(([d, n]) => { const li = document.createElement('li'); li.textContent = d + ' — ' + n; ul.appendChild(li); });
+
+  const tb = $('rows'); tb.textContent = '';
+  if (!rows.length) { const tr = document.createElement('tr'); const td = document.createElement('td'); td.colSpan = 4; td.className = 'empty'; td.textContent = 'Пока никто не ответил. Ответы появятся здесь, как только гости отправят анкету.'; tr.appendChild(td); tb.appendChild(tr); }
+  rows.forEach(x => {
+    const tr = document.createElement('tr');
+    const c1 = document.createElement('td'); c1.textContent = x.name;
+    if (seen[x.name.trim().toLowerCase()] > 1) { const s = document.createElement('div'); s.className = 'dup'; s.textContent = 'отвечал(а) несколько раз'; c1.appendChild(s); }
+    const c2 = document.createElement('td'); c2.textContent = x.attend ? 'Да' : 'Нет'; c2.className = x.attend ? 'yes' : 'no';
+    const c3 = document.createElement('td'); c3.textContent = x.attend ? ((x.drinks || []).join(', ') || '—') : '';
+    const c4 = document.createElement('td'); c4.className = 'when'; c4.textContent = new Date(x.created_at).toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+    tr.append(c1, c2, c3, c4); tb.appendChild(tr);
+  });
+  $('updated').textContent = 'Обновлено ' + new Date().toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' });
+}
+
+$('login').addEventListener('submit', async e => {
+  e.preventDefault(); $('err').hidden = true;
+  pass = $('pass').value;
+  try { await load(); store.set(pass, $('remember').checked); }
+  catch(err){ $('err').textContent = err.message; $('err').hidden = false; }
+});
+$('reload').addEventListener('click', () => load().catch(err => alert(err.message)));
+$('csv').addEventListener('click', () => {
+  const q = v => '"' + String(v).replace(/"/g, '""') + '"';
+  const lines = [['Имя и фамилия','Придёт','Напитки','Когда ответил'].map(q).join(';')];
+  rows.forEach(x => lines.push([x.name, x.attend ? 'Да' : 'Нет', (x.drinks || []).join(', '), new Date(x.created_at).toLocaleString('ru-RU')].map(q).join(';')));
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'гости-алексей-милена.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+});
+pass = store.get();
+if (pass) load().catch(() => { store.clear(); $('login').hidden = false; $('list').hidden = true; });
+</script>
+</body>
+</html>
