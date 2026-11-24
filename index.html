@@ -164,6 +164,16 @@ input[type=text]:focus{outline:none;border-bottom-color:var(--olive)}
 .final .names-f{font-family:var(--f-display);font-size:26px;letter-spacing:.06em;margin-top:6px}
 .final .d{margin-top:10px;font-size:20px;letter-spacing:.2em;opacity:.9}
 
+/* ---------- Музыка ---------- */
+.music{position:fixed;z-index:40;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));width:52px;height:52px;border-radius:50%;border:0;background:var(--olive);color:var(--on-olive);display:grid;place-items:center;cursor:pointer;box-shadow:0 6px 18px rgba(60,55,30,.28);padding:0}
+.music svg{width:24px;height:24px}
+.music .ic-on{display:none}
+.music.on .ic-on{display:block}
+.music.on .ic-off{display:none}
+.music.on::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:1.5px solid var(--olive);opacity:.5;animation:ring 2.2s ease-out infinite}
+@keyframes ring{from{transform:scale(.92);opacity:.6}to{transform:scale(1.25);opacity:0}}
+.music:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+
 @media (prefers-reduced-motion:reduce){
   *{animation:none!important;transition:none!important}
   html{scroll-behavior:auto}
@@ -175,6 +185,12 @@ input[type=text]:focus{outline:none;border-bottom-color:var(--olive)}
   <div class="half l"></div><div class="half r"></div>
   <div class="tag">нажмите,<br>чтобы открыть</div>
 </div>
+
+<audio id="bgm" src="audio/music.mp3" preload="none" loop></audio>
+<button class="music" id="music" type="button" aria-pressed="false" aria-label="Включить музыку" hidden>
+  <svg class="ic-off" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 18.5a2.5 2.5 0 1 1-2.5-2.5c.36 0 .7.08 1 .21V6.6l11-2.1v11.9a2.5 2.5 0 1 1-1.5-2.29V8.3l-8 1.53v8.67z"/></svg>
+  <svg class="ic-on" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
+</button>
 
 <main>
   <!-- Первый экран -->
@@ -355,6 +371,7 @@ function saveRsvp(row){
   function finish(){ c.classList.add('gone'); }
   function open(){
     if (done) return; done = true;
+    if (window.startMusic) window.startMusic();   // музыка стартует от того же нажатия
     c.classList.add('open');
     if (gl && c.classList.contains('gl')) openAt = performance.now();
     else setTimeout(finish, 1900);
@@ -484,6 +501,33 @@ function saveRsvp(row){
     }
     return g;
   }
+})();
+
+/* Музыка: включается вместе с открытием штор, круглая кнопка внизу справа ставит на паузу.
+   Если файла audio/music.mp3 нет, кнопка не появляется. */
+(function(){
+  const btn = document.getElementById('music'), a = document.getElementById('bgm');
+  if (!btn || !a) return;
+  let want = false, fadeT = 0, hiddenPause = false;
+  const set = on => { btn.classList.toggle('on', on); btn.setAttribute('aria-pressed', on); btn.setAttribute('aria-label', on ? 'Выключить музыку' : 'Включить музыку'); };
+  function fadeIn(){
+    clearInterval(fadeT); a.volume = 0;
+    fadeT = setInterval(() => { a.volume = Math.min(0.75, a.volume + 0.03); if (a.volume >= 0.75) clearInterval(fadeT); }, 120);
+  }
+  function play(){
+    want = true; set(true);
+    const p = a.play();
+    if (p && p.catch) p.then(() => { btn.hidden = false; fadeIn(); }).catch(() => { want = false; set(false); btn.hidden = !!a.error; });
+  }
+  function pause(){ want = false; set(false); a.pause(); }
+  a.addEventListener('error', () => { btn.hidden = true; want = false; });
+  a.addEventListener('playing', () => { btn.hidden = false; });
+  btn.addEventListener('click', () => want ? pause() : play());
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && want) { hiddenPause = true; a.pause(); }
+    else if (!document.hidden && hiddenPause) { hiddenPause = false; if (want) a.play().catch(() => set(false)); }
+  });
+  window.startMusic = play;
 })();
 
 /* Звёзды на оливковых блоках */
