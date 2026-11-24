@@ -29,7 +29,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--olive);outline-
 .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
 .bar .grow{flex:1}
 .tbl{overflow-x:auto;background:var(--card);border-radius:14px}
-table{border-collapse:collapse;width:100%;min-width:560px}
+table{border-collapse:collapse;width:100%;min-width:640px}
 th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
 th{font-weight:600;color:var(--muted);font-size:16px}
 tr:last-child td{border-bottom:0}
@@ -37,6 +37,8 @@ tr:last-child td{border-bottom:0}
 .dup{font-size:14px;color:var(--muted)}
 td.when{white-space:nowrap;color:var(--muted);font-variant-numeric:tabular-nums}
 .empty{padding:22px;text-align:center;color:var(--muted)}
+button.del{background:transparent;color:var(--muted);border:1px solid var(--line);font-size:15px;padding:4px 12px}
+button.del:hover{color:var(--no);border-color:var(--no)}
 </style>
 </head>
 <body>
@@ -65,14 +67,14 @@ td.when{white-space:nowrap;color:var(--muted);font-variant-numeric:tabular-nums}
       <button id="csv" type="button">Скачать для Excel</button>
     </div>
     <div class="tbl"><table>
-      <thead><tr><th>Имя и фамилия</th><th>Придёт</th><th>Напитки</th><th>Когда ответил</th></tr></thead>
+      <thead><tr><th>Имя и фамилия</th><th>Придёт</th><th>Напитки</th><th>Когда ответил</th><th></th></tr></thead>
       <tbody id="rows"></tbody>
     </table></div>
   </div>
 </div>
 <script>
-const SUPABASE_URL = '';
-const SUPABASE_KEY = '';
+const SUPABASE_URL = 'https://davtxrmkemwxhivsqzde.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_agCFZURvN-u9GevAoZdU4g_HTiROVIF';
 const $ = id => document.getElementById(id);
 let pass = '', rows = [];
 const store = {
@@ -113,7 +115,7 @@ function render(){
   ent.forEach(([d, n]) => { const li = document.createElement('li'); li.textContent = d + ' — ' + n; ul.appendChild(li); });
 
   const tb = $('rows'); tb.textContent = '';
-  if (!rows.length) { const tr = document.createElement('tr'); const td = document.createElement('td'); td.colSpan = 4; td.className = 'empty'; td.textContent = 'Пока никто не ответил. Ответы появятся здесь, как только гости отправят анкету.'; tr.appendChild(td); tb.appendChild(tr); }
+  if (!rows.length) { const tr = document.createElement('tr'); const td = document.createElement('td'); td.colSpan = 5; td.className = 'empty'; td.textContent = 'Пока никто не ответил. Ответы появятся здесь, как только гости отправят анкету.'; tr.appendChild(td); tb.appendChild(tr); }
   rows.forEach(x => {
     const tr = document.createElement('tr');
     const c1 = document.createElement('td'); c1.textContent = x.name;
@@ -121,11 +123,26 @@ function render(){
     const c2 = document.createElement('td'); c2.textContent = x.attend ? 'Да' : 'Нет'; c2.className = x.attend ? 'yes' : 'no';
     const c3 = document.createElement('td'); c3.textContent = x.attend ? ((x.drinks || []).join(', ') || '—') : '';
     const c4 = document.createElement('td'); c4.className = 'when'; c4.textContent = new Date(x.created_at).toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
-    tr.append(c1, c2, c3, c4); tb.appendChild(tr);
+    const c5 = document.createElement('td');
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'del'; del.textContent = 'Удалить';
+    del.addEventListener('click', () => removeRow(x, del));
+    c5.appendChild(del);
+    tr.append(c1, c2, c3, c4, c5); tb.appendChild(tr);
   });
   $('updated').textContent = 'Обновлено ' + new Date().toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' });
 }
 
+async function removeRow(x, btn){
+  if (btn.dataset.sure !== '1') { btn.dataset.sure = '1'; btn.textContent = 'Точно удалить?'; setTimeout(() => { btn.dataset.sure = ''; btn.textContent = 'Удалить'; }, 4000); return; }
+  btn.disabled = true;
+  const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/guest_delete', {
+    method: 'POST',
+    headers: Object.assign({ apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+      SUPABASE_KEY.startsWith('sb_') ? {} : { Authorization: 'Bearer ' + SUPABASE_KEY }),
+    body: JSON.stringify({ pass, row_id: x.id })
+  }).catch(() => null);
+  if (r && r.ok) await load(); else { btn.disabled = false; btn.textContent = 'Не удалось'; }
+}
 $('login').addEventListener('submit', async e => {
   e.preventDefault(); $('err').hidden = true;
   pass = $('pass').value;

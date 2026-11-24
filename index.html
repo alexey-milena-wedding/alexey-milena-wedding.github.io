@@ -332,8 +332,8 @@ input[type=text]:focus{outline:none;border-bottom-color:var(--olive)}
 const WA_PHONE = '79064690492';
 
 /* ===== Таблица ответов (Supabase). Пусто — анкета уходит только в WhatsApp. ===== */
-const SUPABASE_URL = '';   // например https://abcd1234.supabase.co
-const SUPABASE_KEY = '';   // ключ anon public: он может только добавлять ответы
+const SUPABASE_URL = 'https://davtxrmkemwxhivsqzde.supabase.co';   // например https://abcd1234.supabase.co
+const SUPABASE_KEY = 'sb_publishable_agCFZURvN-u9GevAoZdU4g_HTiROVIF';   // ключ anon public: он может только добавлять ответы
 function saveRsvp(row){
   if (!SUPABASE_URL || !SUPABASE_KEY) return Promise.resolve(false);
   return fetch(SUPABASE_URL + '/rest/v1/rsvp', {
